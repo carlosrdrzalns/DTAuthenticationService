@@ -14,5 +14,6 @@ namespace AuthenticationService.DbModels
         }
 
         public DbSet<AuthenticationUser> AuthenticationUser { get; set; }
+        public DbSet<AuthenticationDevice> AuthenticationDevice { get; set; }
     }
 }

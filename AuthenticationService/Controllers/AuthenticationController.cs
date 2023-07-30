@@ -66,8 +66,62 @@ namespace AuthenticationService.Controllers
             return Ok();
         }
 
+        [HttpGet]
+        [Route("authenticationDevice")]
+        public async Task<ActionResult> checkDevice(string deviceName, string deviceKey)
+        {
+
+            AuthenticationDevice authenticationDevice = await ctx.AuthenticationDevice.SingleOrDefaultAsync(device => device.DeviceName == deviceName);
+            if (authenticationDevice == null)
+            {
+                return NotFound();
+            }
+            byte[] key = GetHash(deviceKey+authenticationDevice.Salt);
+            if (!authenticationDevice.DeviceKey.SequenceEqual(key))
+            {
+                return Unauthorized();
+            }
+            return Ok();
+        }
+
         [HttpPost]
-        [Route("creteUser")]
+        [Route("createDevice")]
+        public async Task<ActionResult> createDevice(string deviceName, string deviceKey, Guid token)
+        {
+            AuthenticationUser user = await ctx.AuthenticationUser.SingleOrDefaultAsync(user => user.temp_token == token);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            DateTime now = DateTime.UtcNow;
+            if (now.Subtract(user.temp_token_date).TotalSeconds > transientPolicy)
+            {
+                return Unauthorized();
+            }
+            AuthenticationDevice device = await ctx.AuthenticationDevice.SingleOrDefaultAsync(device => device.DeviceName == deviceName);
+            if (device != null)
+            {
+                return Conflict("El dispositivo indicado ya existe");
+            }
+            string salt = Guid.NewGuid().ToString().Substring(0, 6);
+            byte[] key = GetHash(deviceKey + salt);
+            device = new AuthenticationDevice
+            {
+                id = Guid.NewGuid(),
+                DeviceName = deviceName,
+                DeviceKey = key,
+                Salt = salt,
+                
+            };
+            ctx.AuthenticationDevice.Add(device);
+            await ctx.SaveChangesAsync();
+            return Ok();
+        }
+
+
+
+        [HttpPost]
+        [Route("createUser")]
         public async Task<ActionResult> createUser(string username, string password, Guid token)
         {
             AuthenticationUser user = await ctx.AuthenticationUser.SingleOrDefaultAsync(user => user.temp_token == token);
